@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<otrs_config version="2.0" init="Application">
+    <Setting Name="TicketMSTeams::Queue" Required="0" Valid="1">
+        <Description Translatable="1">Defines the webhook for each Queue</Description>
+        <Navigation>MSTeamsWebhook</Navigation>
+        <Value>
+            <Hash>
+                <Item Key="Misc">https://outlook.office.com/webhook/b30xxxxxx/IncomingWebhook/67exxxxxxxx77f38/19d9xxxxxbe</Item>
+                <Item Key="Postmaster">Webhook URL Here</Item>
+                <Item Key="Helpdesk">Webhook URL Here</Item>
+            </Hash>
+        </Value>
+    </Setting>
+</otrs_config>
