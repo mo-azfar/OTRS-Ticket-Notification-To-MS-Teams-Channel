@@ -12,6 +12,26 @@
         <File Permission="660" Location="Kernel/Config/Files/XML/TicketMSTeams.xml"/>
         <File Permission="660" Location="Custom/Kernel/System/Ticket/Event/TicketMSTeams.pm"/>
     </Filelist>
+        <CodeInstall><![CDATA[
+$Kernel::OM->Get('Kernel::System::GenericAgent')->JobAdd(
+        Name => 'ZZZNotification To MSTeam',
+        Data => {
+            'EventValues' => [
+                           'TicketQueueUpdate'
+                         ],
+			'TicketNumber' => '*',
+            'NewModule' => 'Kernel::System::Ticket::Event::TicketMSTeams',
+			'NewParamKey1' => 'Subject',
+			'NewParamValue1' => 'Hello all. Ticket#<OTRS_TICKET_TicketNumber> is moved to your queue.<br/>',
+			'NewParamKey2' => 'Text1',
+			'NewParamValue2' => 'Ticket in <OTRS_TICKET_Queue>',
+            'NewParamKey3' => 'Text2',
+			'NewParamValue3' => 'Ticket state is <OTRS_TICKET_State>',
+            'Valid' => 1,
+        },
+        UserID => 1,
+    );
+]]></CodeInstall>
     <IntroInstall Type="pre" Title="Pre-Install Information" Lang="en"><![CDATA[
        <br/><br/>
        <h3 ><strong>README</strong></h3>
