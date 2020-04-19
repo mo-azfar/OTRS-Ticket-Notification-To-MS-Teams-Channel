@@ -4,6 +4,14 @@
 # --
 #Send a notification to MS Teams Channel upon ticket action. E.g: TicketQueueUpdate
 #
+# 1. create incomig webhook by add Incoming Webhook app in MS Teams.
+# 2. Configure it and save the webhook URL.
+#
+#20200329 - 1st release.
+#20200330 - Adding support to sent Text2 Param (Optional field). 
+#20200419 - Using Task scheduler instead direct sending
+#		  - Built self API for sending telegram (using LWP). 
+
 package Kernel::System::Ticket::Event::TicketMSTeams;
 
 use strict;
@@ -221,87 +229,140 @@ sub Run {
         # error if queue is defined but Webhook URLis empty
         if ( !$MSTeamWebhookURL )
         {
-            $LogObject->Log(
+            $Kernel::OM->Get('Kernel::System::Log')->Log(
                 Priority => 'notice',
                 Message  => "No WebhookURL defined for Queue $Ticket{Queue}"
             );
             return;
         }
   	    
+		my $TicketURL = $HttpType.'://'.$FQDN.'/'.$ScriptAlias.'index.pl?Action=AgentTicketPrint;TicketID='.$TicketID;	
 		
-		my $params = {
-		    "\@context"  => "https://schema.org/extensions",
-			"\@type" => "MessageCard",
-			"themeColor"=> "0072C6",
-			"summary"=> "Ticket Info",
-			"sections"=> [{
-			"activityTitle"=> $MessageSubject,
-			"activitySubtitle"=> "Ticket Details for OTRS#$Ticket{TicketNumber}",
-            "activityImage"=> "http://icons.iconarchive.com/icons/artua/star-wars/256/Clone-Trooper-icon.png",
-			    "text"=> $MessageText1,
-                "facts"=> [
-				{ 
-					"name"=> "Create", 
-					"value"=> $DateTimeString 
-				},
-				{ 
-					"name"=> "Queue", 
-					"value"=> $Ticket{Queue} 
-				}, 
-				{ 
-					"name"=> "State", 
-					"value"=> $Ticket{State} 
-				}, 
-				{ 
-					"name"=> "Priority", 
-					"value"=> $Ticket{Priority} 
-				}]
-			}],
-			"markdown" => "true",
-			"potentialAction"=> [{        
-					"\@type"=> "OpenUri", 
-					"name"=> "View",
-                        "targets"=> [{ 
-					        "os"=> "default", 
-					        "uri"=> $HttpType."://".$FQDN."/".$ScriptAlias."index.pl?Action=AgentTicketZoom;TicketID=".$TicketID
-					        }
-                ]
-			}
-			]
-		};
-			
-		my $ua = LWP::UserAgent->new;        
+		# For Asynchronous sending
+		my $TaskName = substr "Recipient".rand().$MSTeamWebhookURL, 0, 255;
 		
-		my $response = $ua->request(
-			POST $MSTeamWebhookURL,
-			Content_Type    => 'application/json',
-			Content         => JSON::MaybeXS::encode_json($params)
-		)	;
-		
-		my $content  = $response->decoded_content();
-		my $resCode =$response->code();
-		
-		my $result;
-		if ($resCode eq "200")
-		{
-		$result="Success";
-		}
-		else
-		{
-		$result=$content;
-		}
-		
-		## result should write to ticket history
-		my $TicketHistory = $TicketObject->HistoryAdd(
-        TicketID     => $TicketID,
-        QueueID      => $QueueID,
-        HistoryType  => 'SendAgentNotification',
-        Name         => "MSTeam Notification to $Ticket{Queue} : $result",
-        CreateUserID => 1,
-		);			
-				
+		# instead of direct sending, we use task scheduler
+		my $TaskID = $Kernel::OM->Get('Kernel::System::Scheduler')->TaskAdd(
+			Type                     => 'AsynchronousExecutor',
+			Name                     => $TaskName,
+			Attempts                 =>  1,
+			MaximumParallelInstances =>  0,
+			Data                     => 
+			{
+				Object   => 'Kernel::System::Ticket::Event::TicketMSTeams',
+				Function => 'SendMessageTeams',
+				Params   => 
+						{
+							MSTeamWebhookURL	=>	$MSTeamWebhookURL,
+							MessageSubject	=>	$MessageSubject,
+							MessageText	=>	$MessageText1,
+							TicketNumber	=>	$Ticket{TicketNumber},
+							Created	=> $DateTimeString,
+							Queue	=> $Ticket{Queue},
+							Service	=>	$Ticket{Service},
+							Priority=>	$Ticket{Priority},
+							TicketURL	=>	$TicketURL,
+							TicketID      => $TicketID, #sent for log purpose
+
+						},
+			},
+		);	
+						
 	}
 
+}
+
+=cut
+
+		my $Test = $Self->SendMessageTeams(
+				MSTeamWebhookURL	=>	$MSTeamWebhookURL,
+				MessageSubject	=>	$MessageSubject,
+				MessageText	=>	$MessageText1,
+				TicketNumber	=>	$Ticket{TicketNumber},
+				Created	=> $DateTimeString,
+				Queue	=> $Ticket{Queue},
+				Service	=>	$Ticket{Service},
+				Priority=>	$Ticket{Priority},
+				TicketURL	=>	$TicketURL,
+				TicketID      => $TicketID, #sent for log purpose
+		);
+
+=cut
+
+sub SendMessageTeams {
+	my ( $Self, %Param ) = @_;
+
+	my $ua = LWP::UserAgent->new;
+	utf8::decode($Param{MessageText});
+			
+	my $params = {
+	    "\@context"  => "https://schema.org/extensions",
+		"\@type" => "MessageCard",
+		"themeColor"=> "0072C6",
+		"summary"=> "Ticket Info",
+		"sections"=> [{
+		"activityTitle"=> $Param{MessageSubject},
+		"activitySubtitle"=> "Ticket Details for OTRS#$Param{TicketNumber}",
+        "activityImage"=> "http://icons.iconarchive.com/icons/artua/star-wars/256/Clone-Trooper-icon.png",
+		    "text"=> $Param{MessageText},
+            "facts"=> [
+			{ 
+				"name"=> "Create", 
+				"value"=> $Param{DateTimeString} 
+			},
+			{ 
+				"name"=> "Queue", 
+				"value"=> $Param{Queue} 
+			}, 
+			{ 
+				"name"=> "Service", 
+				"value"=> $Param{Service} 
+			}, 
+			{ 
+				"name"=> "Priority", 
+				"value"=> $Param{Priority} 
+			}]
+		}],
+		"markdown" => "true",
+		"potentialAction"=> [{        
+				"\@type"=> "OpenUri", 
+				"name"=> "View",
+                    "targets"=> [{ 
+				        "os"=> "default", 
+				        "uri"=> $Param{TicketURL}
+				        }
+            ]
+		}
+		]
+	};     
+	
+	my $response = $ua->request(
+		POST $Param{MSTeamWebhookURL},
+		Content_Type    => 'application/json',
+		Content         => JSON::MaybeXS::encode_json($params)
+	)	;
+	
+	
+	my $content  = $response->decoded_content();
+	my $resCode =$response->code();
+
+	if ($resCode ne 200)
+	{
+	$Kernel::OM->Get('Kernel::System::Log')->Log(
+			 Priority => 'error',
+			 Message  => "MSTeams notification for Queue $Param{Queue}: $resCode $content",
+		);
+	}
+	else
+	{
+	my $TicketObject = $Kernel::OM->Get('Kernel::System::Ticket');
+	my $TicketHistory = $TicketObject->HistoryAdd(
+        TicketID     => $Param{TicketID},
+        HistoryType  => 'SendAgentNotification',
+        Name         => "Sent MSTeams Notification for Queue $Param{Queue}",
+        CreateUserID => 1,
+		);			
+	}
 }
 
 1;
