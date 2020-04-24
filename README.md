@@ -1,7 +1,7 @@
 # OTRS-Ticket-Notification-To-MS-Teams
 - Built for OTRS CE v 6.0.x
 - Send a MS Teams notification to Channel upon ticket action. E.g: TicketQueueUpdate
-- **Require CustomMessage module**  
+- **Require CustomMessage API**  
 
 1. Create incomig webhook by add Incoming Webhook app in MS Teams.Configure it, add it to specific channel and get the Webhook URL.
 
