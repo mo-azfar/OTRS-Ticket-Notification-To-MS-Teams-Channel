@@ -3,15 +3,6 @@
 # did not receive this file, see http://www.gnu.org/licenses/agpl.txt.
 # --
 #Send a notification to MS Teams Channel upon ticket action. E.g: TicketQueueUpdate
-#
-# 1. create incomig webhook by add Incoming Webhook app in MS Teams.
-# 2. Configure it and save the webhook URL.
-#
-#20200329 - 1st release.
-#20200330 - Adding support to sent Text2 Param (Optional field). 
-#20200419 - Using Task scheduler instead direct sending
-#		  - Built self API for sending telegram (using LWP). 
-
 package Kernel::System::Ticket::Event::TicketMSTeams;
 
 use strict;
@@ -25,11 +16,6 @@ use lib dirname($RealBin);
 use SOAP::Lite;
 use Data::Dumper;
 use Fcntl qw(:flock SEEK_END);
-use LWP::UserAgent;
-use HTTP::Request::Common;
-use JSON::MaybeXS;
-#yum install -y perl-LWP-Protocol-https
-#yum install -y perl-JSON-MaybeXS
 
 our @ObjectDependencies = (
     'Kernel::System::Ticket',
@@ -249,8 +235,8 @@ sub Run {
 			MaximumParallelInstances =>  0,
 			Data                     => 
 			{
-				Object   => 'Kernel::System::Ticket::Event::TicketMSTeams',
-				Function => 'SendMessageTeams',
+				Object   => 'Kernel::System::CustomMessage',
+				Function => 'SendMessageMSTeams',
 				Params   => 
 						{
 							MSTeamWebhookURL	=>	$MSTeamWebhookURL,
@@ -270,99 +256,6 @@ sub Run {
 						
 	}
 
-}
-
-=cut
-
-		my $Test = $Self->SendMessageTeams(
-				MSTeamWebhookURL	=>	$MSTeamWebhookURL,
-				MessageSubject	=>	$MessageSubject,
-				MessageText	=>	$MessageText1,
-				TicketNumber	=>	$Ticket{TicketNumber},
-				Created	=> $DateTimeString,
-				Queue	=> $Ticket{Queue},
-				Service	=>	$Ticket{Service},
-				Priority=>	$Ticket{Priority},
-				TicketURL	=>	$TicketURL,
-				TicketID      => $TicketID, #sent for log purpose
-		);
-
-=cut
-
-sub SendMessageTeams {
-	my ( $Self, %Param ) = @_;
-
-	my $ua = LWP::UserAgent->new;
-	utf8::decode($Param{MessageText});
-			
-	my $params = {
-	    "\@context"  => "https://schema.org/extensions",
-		"\@type" => "MessageCard",
-		"themeColor"=> "0072C6",
-		"summary"=> "Ticket Info",
-		"sections"=> [{
-		"activityTitle"=> $Param{MessageSubject},
-		"activitySubtitle"=> "Ticket Details for OTRS#$Param{TicketNumber}",
-        "activityImage"=> "http://icons.iconarchive.com/icons/artua/star-wars/256/Clone-Trooper-icon.png",
-		    "text"=> $Param{MessageText},
-            "facts"=> [
-			{ 
-				"name"=> "Create", 
-				"value"=> $Param{DateTimeString} 
-			},
-			{ 
-				"name"=> "Queue", 
-				"value"=> $Param{Queue} 
-			}, 
-			{ 
-				"name"=> "Service", 
-				"value"=> $Param{Service} 
-			}, 
-			{ 
-				"name"=> "Priority", 
-				"value"=> $Param{Priority} 
-			}]
-		}],
-		"markdown" => "true",
-		"potentialAction"=> [{        
-				"\@type"=> "OpenUri", 
-				"name"=> "View",
-                    "targets"=> [{ 
-				        "os"=> "default", 
-				        "uri"=> $Param{TicketURL}
-				        }
-            ]
-		}
-		]
-	};     
-	
-	my $response = $ua->request(
-		POST $Param{MSTeamWebhookURL},
-		Content_Type    => 'application/json',
-		Content         => JSON::MaybeXS::encode_json($params)
-	)	;
-	
-	
-	my $content  = $response->decoded_content();
-	my $resCode =$response->code();
-
-	if ($resCode ne 200)
-	{
-	$Kernel::OM->Get('Kernel::System::Log')->Log(
-			 Priority => 'error',
-			 Message  => "MSTeams notification for Queue $Param{Queue}: $resCode $content",
-		);
-	}
-	else
-	{
-	my $TicketObject = $Kernel::OM->Get('Kernel::System::Ticket');
-	my $TicketHistory = $TicketObject->HistoryAdd(
-        TicketID     => $Param{TicketID},
-        HistoryType  => 'SendAgentNotification',
-        Name         => "Sent MSTeams Notification for Queue $Param{Queue}",
-        CreateUserID => 1,
-		);			
-	}
 }
 
 1;
