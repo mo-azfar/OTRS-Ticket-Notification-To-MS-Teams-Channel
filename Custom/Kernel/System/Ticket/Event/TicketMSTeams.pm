@@ -13,9 +13,9 @@ use File::Basename;
 use FindBin qw($RealBin);
 use lib dirname($RealBin);
 
-use SOAP::Lite;
-use Data::Dumper;
-use Fcntl qw(:flock SEEK_END);
+#use SOAP::Lite;
+#use Data::Dumper;
+#use Fcntl qw(:flock SEEK_END);
 
 our @ObjectDependencies = (
     'Kernel::System::Ticket',
