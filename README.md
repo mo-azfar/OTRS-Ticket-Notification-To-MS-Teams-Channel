@@ -4,8 +4,8 @@
 
 		Used CPAN Module:
 		
-		JSON::MaybeXS; 			#yum install -y perl-JSON-MaybeXS
-		LWP::UserAgent;  		#yum install -y perl-LWP-Protocol-https
+		JSON::MaybeXS; 	#yum install -y perl-JSON-MaybeXS
+		LWP::UserAgent; #yum install -y perl-LWP-Protocol-https
 		HTTP::Request::Common;	
     
 
@@ -26,7 +26,7 @@
 		[Mandatory][Name]: Up to you.
 		[Mandatory][Event Based Execution] : Mandatory. Up to you. Example, TicketQueueUpdate for moving ticket to another queue
 		[Optional][Select Ticket]: Optional. Up to you.
-		[Mandatory][Execute Custom Module] : Module => Kernel::System::Ticket::Event::TicketSlack
+		[Mandatory][Execute Custom Module] : Module => Kernel::System::Ticket::Event::TicketMSTeams
 	
 		[Mandatory][Param 1 Key] : Subject   
 		[Mandatory][Param 1 Value] : Text subject to be sent to the channel.
